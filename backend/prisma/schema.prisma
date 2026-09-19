@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id              BigInt   @id @default(autoincrement())
+  telegramId      BigInt   @unique @map("telegram_id")
+  username        String?
+  firstName       String?  @map("first_name")
+  language        String   @default("uz")
+  role            UserRole @default(USER)
+  registeredAt    DateTime @default(now()) @map("registered_at")
+  lastActivityAt  DateTime @default(now()) @updatedAt @map("last_activity_at")
+  isBlocked       Boolean  @default(false) @map("is_blocked")
+
+  featureUsage    FeatureUsage[]
+  quizResults     QuizResult[]
+  securityEvents  SecurityEvent[]
+  auditLogs       AdminAuditLog[]
+
+  @@map("users")
+}
+
+model FeatureUsage {
+  id       BigInt   @id @default(autoincrement())
+  userId   BigInt   @map("user_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature  String
+  usedAt   DateTime @default(now()) @map("used_at")
+
+  @@map("feature_usage")
+}
+
+model Quiz {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  questions   QuizQuestion[]
+  results     QuizResult[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id           String @id @default(cuid())
+  quizId       String @map("quiz_id")
+  quiz         Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question     String
+  options      Json   // masalan: ["variant A", "variant B", "variant C", "variant D"]
+  correctIndex Int    @map("correct_index")
+  order        Int    @default(0)
+
+  @@map("quiz_questions")
+}
+
+model QuizResult {
+  id       BigInt   @id @default(autoincrement())
+  userId   BigInt   @map("user_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId   String   @map("quiz_id")
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  score    Int
+  maxScore Int      @map("max_score")
+  takenAt  DateTime @default(now()) @map("taken_at")
+
+  @@map("quiz_results")
+}
+
+model SecurityEvent {
+  id        BigInt   @id @default(autoincrement())
+  eventType String   @map("event_type")
+  userId    BigInt?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipHash    String?  @map("ip_hash")
+  endpoint  String?
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("security_events")
+}
+
+model AdminAuditLog {
+  id        BigInt   @id @default(autoincrement())
+  adminId   BigInt   @map("admin_id")
+  admin     User     @relation(fields: [adminId], references: [id])
+  action    String
+  target    String?
+  ipHash    String?  @map("ip_hash")
+  result    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admin_audit_log")
+}
+
+model RequestLog {
+  id         BigInt   @id @default(autoincrement())
+  ipHash     String   @map("ip_hash")
+  method     String
+  endpoint   String
+  statusCode Int      @map("status_code")
+  userId     BigInt?  @map("user_id")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("request_logs")
+}
